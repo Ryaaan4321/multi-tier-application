@@ -1,0 +1,34 @@
+{
+  "name": "gearbox-service",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Multi-tier microservice implementation",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "@fastify/helmet": "^11.1.1",
+    "@prisma/client": "^5.18.0",
+    "fastify": "^4.28.1",
+    "ioredis": "^5.4.1",
+    "pino": "^9.3.2",
+    "pino-pretty": "^11.2.2",
+    "prom-client": "^15.1.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "prisma": "^5.18.0",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

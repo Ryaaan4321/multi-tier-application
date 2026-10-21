@@ -1,0 +1,50 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Product {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  name          String   @db.VarChar(255)
+  description   String?  @db.Text
+  priceCents    Int      @map("price_cents")
+  stockQuantity Int      @map("stock_quantity")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([createdAt(sort: Desc)])
+  @@map("products")
+}
+
+model Order {
+  id             String      @id @default(uuid(7)) @db.Uuid
+  idempotencyKey String      @unique @map("idempotency_key") @db.VarChar(128)
+  customerEmail  String      @map("customer_email") @db.VarChar(255)
+  totalCents     Int         @map("total_cents")
+  status         String      @default("CONFIRMED") @db.VarChar(32)
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  items          OrderItem[]
+
+  @@index([customerEmail])
+  @@index([createdAt(sort: Desc)])
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  orderId        String   @map("order_id") @db.Uuid
+  productId      String   @map("product_id") @db.Uuid
+  quantity       Int
+  unitPriceCents Int      @map("unit_price_cents")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_items")
+}

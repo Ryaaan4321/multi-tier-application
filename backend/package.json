@@ -1,0 +1,19 @@
+{
+  "name": "gearbox-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Load-aware reverse proxy and multi-tiered microservices",
+  "workspaces": [
+    "proxy",
+    "service"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}
