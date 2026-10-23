@@ -1,4 +1,5 @@
 import client from 'prom-client';
+import { Logger } from 'pino';
 
 const collectDefaultMetrics = client.collectDefaultMetrics;
 collectDefaultMetrics({ register: client.register });
@@ -20,13 +21,24 @@ export const operationDurationHistogram = new client.Histogram({
 export async function timeOperation<T>(
   operation: string,
   tier: number,
-  fn: () => Promise<T>
+  fn: () => Promise<T>,
+  logger?: Logger
 ): Promise<T> {
+  const start = process.hrtime();
   const end = operationDurationHistogram.startTimer({ operation, tier: tier.toString() });
+
   try {
     return await fn();
   } finally {
     end();
+    const diff = process.hrtime(start);
+    const durationMs = diff[0] * 1000 + diff[1] / 1e6;
+    if (logger) {
+      logger.info(
+        { operation, tier, durationMs: Number(durationMs.toFixed(2)) },
+        `${operation} took ${durationMs.toFixed(2)}ms`
+      );
+    }
   }
 }
 

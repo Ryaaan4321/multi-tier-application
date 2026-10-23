@@ -15,18 +15,24 @@ export async function buildApp(container: ServiceContainer) {
     requestIdLogLabel: 'requestId',
     disableRequestLogging: false
   });
+
   await app.register(helmet, { contentSecurityPolicy: false });
   await app.register(cors, { origin: true });
+
   app.addHook('onRequest', async (request) => {
     (request.raw as { startTime?: [number, number] }).startTime = process.hrtime();
   });
+
   app.addHook('onResponse', async (request, reply) => {
     reply.header('X-Served-By-Tier', `Tier-${container.config.TIER}`);
+
     const startTime = (request.raw as { startTime?: [number, number] }).startTime;
     if (startTime) {
       const diff = process.hrtime(startTime);
       const durationSeconds = diff[0] + diff[1] / 1e9;
+      const durationMs = durationSeconds * 1000;
       const routePath = request.routeOptions?.url || request.url;
+
       httpRequestDurationHistogram
         .labels({
           method: request.method,
@@ -35,14 +41,29 @@ export async function buildApp(container: ServiceContainer) {
           tier: container.config.TIER.toString()
         })
         .observe(durationSeconds);
+
+      container.logger.info(
+        {
+          layer: 'HTTP',
+          method: request.method,
+          url: request.url,
+          statusCode: reply.statusCode,
+          durationMs: Number(durationMs.toFixed(2)),
+          tier: container.config.TIER
+        },
+        `[HTTP] ${request.method} ${request.url} -> ${reply.statusCode} in ${durationMs.toFixed(2)}ms [Tier: ${container.config.TIER}]`
+      );
     }
   });
+
   app.setErrorHandler(errorHandler);
+
   await app.register(systemRoutes, {
     shardRouter: container.shardRouter,
     cache: container.cache,
     tier: container.config.TIER
   });
+
   await app.register(
     async (v1) => {
       await v1.register(productRoutes, { controller: container.productsController });

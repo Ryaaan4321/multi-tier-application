@@ -5,5 +5,6 @@ export async function orderRoutes(fastify: FastifyInstance, options: { controlle
   const { controller } = options;
 
   fastify.post('/orders', (req, reply) => controller.create(req, reply));
+  fastify.get('/orders', (req, reply) => controller.list(req, reply));
   fastify.get('/orders/:id', (req, reply) => controller.getById(req, reply));
 }
