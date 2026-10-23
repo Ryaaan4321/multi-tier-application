@@ -8,16 +8,13 @@ export async function systemRoutes(
   options: { shardRouter: ShardRouter; cache: ICacheManager; tier: number }
 ): Promise<void> {
   const { shardRouter, tier } = options;
-
   fastify.get('/health', async (_req, reply) => {
     reply.status(200).send({ status: 'ok', tier });
   });
-
   fastify.get('/ready', async (_req, reply) => {
     try {
       const clients = shardRouter.getAllClients();
       await Promise.all(clients.map((c) => c.$queryRaw`SELECT 1`));
-
       reply.status(200).send({
         status: 'ready',
         tier,
@@ -32,7 +29,6 @@ export async function systemRoutes(
       });
     }
   });
-
   fastify.get('/metrics', async (_req, reply) => {
     const metrics = await prometheusRegistry.metrics();
     reply.header('Content-Type', prometheusRegistry.contentType).send(metrics);

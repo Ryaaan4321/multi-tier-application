@@ -11,25 +11,19 @@ const envSchema = z.object({
   REDIS_URL: z.string().url().optional(),
   KAFKA_BROKERS: z.string().optional()
 });
-
 export type EnvConfig = z.infer<typeof envSchema>;
-
 let parsedConfig: EnvConfig | null = null;
-
 export function loadConfig(): EnvConfig {
   if (parsedConfig) {
     return parsedConfig;
   }
-
   const result = envSchema.safeParse(process.env);
-
   if (!result.success) {
     const errorDetails = result.error.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
       .join('\n');
     throw new Error(`Environment validation failed:\n${errorDetails}`);
   }
-
   parsedConfig = result.data;
   return parsedConfig;
 }

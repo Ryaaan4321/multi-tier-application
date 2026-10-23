@@ -4,8 +4,9 @@ import { Order, OrderItem } from '../models/domain.js';
 
 export type TxClient = Prisma.TransactionClient;
 
+
 export class OrderRepository {
-  constructor(private readonly shardRouter: ShardRouter) {}
+  constructor(private readonly shardRouter: ShardRouter) { }
 
   async withTransaction<T>(shardKey: string, fn: (tx: TxClient) => Promise<T>): Promise<T> {
     const client = this.shardRouter.getClientForId(shardKey);
@@ -42,6 +43,27 @@ export class OrderRepository {
 
     if (!record) return null;
     return this.mapToDomain(record);
+  }
+
+  async findAll(params: { page: number, limit: number }): Promise<{ orders: Order[]; total: number }> {
+    const clients = this.shardRouter.getAllClients();
+    const skip = (params.page - 1) * params.limit;
+    const shardPromises = clients.map(async (client) => {
+      return client.order.findMany({
+        take: params.limit,
+        orderBy: { createdAt: "desc" },
+        include: { items: true }
+      })
+    })
+    const shardResults = await Promise.all(shardPromises);
+    const merged = shardResults
+      .flat()
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, params.limit);
+    return {
+      orders: merged.map((r) => this.mapToDomain(r)),
+      total: merged.length
+    };
   }
 
   async create(

@@ -47,7 +47,6 @@ export class ShardRouter {
       'Database shard router initialized'
     );
   }
-
   private getConnectionLimitForTier(tier: number): number {
     switch (tier) {
       case 6:
@@ -66,7 +65,6 @@ export class ShardRouter {
         return 5;
     }
   }
-
   private appendConnectionLimit(baseUrl: string, limit: number): string {
     const separator = baseUrl.includes('?') ? '&' : '?';
     if (baseUrl.includes('connection_limit=')) {
