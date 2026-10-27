@@ -17,25 +17,19 @@ const proxyEnvSchema = z.object({
   COOLDOWN_PERIOD_MS: z.coerce.number().default(15000),
   SLIDING_WINDOW_SECONDS: z.coerce.number().default(10)
 });
-
 export type ProxyEnvConfig = z.infer<typeof proxyEnvSchema>;
-
 let parsedProxyConfig: ProxyEnvConfig | null = null;
-
 export function loadProxyConfig(): ProxyEnvConfig {
   if (parsedProxyConfig) {
     return parsedProxyConfig;
   }
-
   const result = proxyEnvSchema.safeParse(process.env);
-
   if (!result.success) {
     const errorDetails = result.error.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
       .join('\n');
     throw new Error(`Proxy environment validation failed:\n${errorDetails}`);
   }
-
   parsedProxyConfig = result.data;
   return parsedProxyConfig;
 }

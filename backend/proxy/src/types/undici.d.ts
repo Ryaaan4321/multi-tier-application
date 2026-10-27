@@ -14,11 +14,7 @@ declare module 'undici' {
     }): Promise<{
       statusCode: number;
       headers: Record<string, string | string[] | undefined>;
-      body: {
-        pipe: (destination: any) => any;
-        text: () => Promise<string>;
-        json: () => Promise<any>;
-      };
+      body: any;
     }>;
     close(): Promise<void>;
     destroy(): Promise<void>;
