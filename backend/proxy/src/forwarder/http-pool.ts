@@ -111,12 +111,7 @@ export class HttpPoolManager {
       reply.header('X-Served-By-Tier', `Tier-${targetTier}`);
       reply.header('X-Request-Id', requestId);
       reply.status(statusCode);
-      upstreamResponse.body.pipe(reply.raw);
-      return {
-        servedByTier: targetTier,
-        statusCode,
-        fallbackOccurred
-      };
+      return reply.send(upstreamResponse.body);
     } catch (err) {
       breaker.recordFailure();
       this.logger.error({ err, targetTier, url: request.url }, 'Upstream tier connection error');

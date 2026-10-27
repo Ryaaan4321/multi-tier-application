@@ -141,7 +141,7 @@ export async function buildProxyApp(context: ProxyAppContext): Promise<FastifyIn
     });
   });
 
-  app.all('/*', async (request, reply) => {
+  app.setNotFoundHandler(async (request, reply) => {
     const now = Date.now();
     const cost = context.costEvaluator.evaluate(request.method, request.url);
     context.slidingWindow.add(cost, now);
