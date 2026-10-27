@@ -203,6 +203,7 @@ export async function buildProxyApp(context: ProxyAppContext): Promise<FastifyIn
     }
 
     await context.poolManager.forward(targetTier, request, reply);
+    return reply;
   });
 
   return app;

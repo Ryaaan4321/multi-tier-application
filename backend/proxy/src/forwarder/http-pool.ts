@@ -104,14 +104,22 @@ export class HttpPoolManager {
         breaker.recordSuccess();
       }
       for (const [headerKey, headerVal] of Object.entries(upstreamResponse.headers)) {
-        if (headerVal !== undefined && headerKey.toLowerCase() !== 'transfer-encoding') {
+        const lowerKey = headerKey.toLowerCase();
+        if (
+          headerVal !== undefined &&
+          lowerKey !== 'transfer-encoding' &&
+          lowerKey !== 'content-length' &&
+          lowerKey !== 'connection' &&
+          lowerKey !== 'keep-alive'
+        ) {
           reply.header(headerKey, headerVal);
         }
       }
       reply.header('X-Served-By-Tier', `Tier-${targetTier}`);
       reply.header('X-Request-Id', requestId);
       reply.status(statusCode);
-      reply.send(upstreamResponse.body);
+      const responseBuffer = Buffer.from(await upstreamResponse.body.arrayBuffer());
+      reply.send(responseBuffer);
       return {
         servedByTier: targetTier,
         statusCode,
