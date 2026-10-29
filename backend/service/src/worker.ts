@@ -39,7 +39,7 @@ async function startWorker() {
             partition,
             offset: message.offset
           },
-          '📧 [Worker] Processing email dispatch'
+          '[Worker] Processing email dispatch'
         );
 
         await new Promise((resolve) => setTimeout(resolve, 50));
