@@ -1,4 +1,4 @@
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 import { ICacheManager } from './cache.interface.js';
 import { Logger } from 'pino';
 
@@ -14,7 +14,7 @@ export class RedisCacheManager implements ICacheManager {
       lazyConnect: true
     });
 
-    this.client.on('error', (err) => {
+    this.client.on('error', (err: Error) => {
       this.logger.error({ err }, 'Redis connection error');
     });
   }

@@ -16,7 +16,7 @@ import { ProductService } from './services/products.service.js';
 import { OrderService } from './services/orders.service.js';
 import { ProductsController } from './controllers/products.controller.js';
 import { OrdersController } from './controllers/orders.controller.js';
-
+import { KafkaProducerManager } from './infra/kafka/producer.js';
 export interface ServiceContainer {
   config: EnvConfig;
   logger: Logger;
@@ -43,7 +43,6 @@ export async function createContainer(config: EnvConfig, logger: Logger): Promis
     tier: config.TIER,
     logger
   });
-
   let cache: ICacheManager;
   if (config.TIER <= 5 && config.REDIS_URL) {
     const redisCache = new RedisCacheManager(config.REDIS_URL, logger);
@@ -56,21 +55,19 @@ export async function createContainer(config: EnvConfig, logger: Logger): Promis
   }
 
   let emailSender: IEmailSender;
+  let eventPublisher: IEventPublisher;
+  let kafkaProducer: KafkaProducerManager | null = null;
   if (config.TIER <= 3) {
-    emailSender = new KafkaEmailSender(logger);
+    const brokers = config.KAFKA_BROKERS ? config.KAFKA_BROKERS.split(',').map((b) => b.trim()) : ['localhost:9092'];
+    kafkaProducer = new KafkaProducerManager(brokers, `gearbox-service-tier-${config.TIER}`, logger);
+    await kafkaProducer.connect();
+    emailSender = new KafkaEmailSender(kafkaProducer, logger);
+    eventPublisher = new KafkaEventPublisher(kafkaProducer, logger);
     containerLogger.info('Wired KafkaEmailSender for tier ' + config.TIER);
   } else {
     emailSender = new DirectEmailSender(logger, 25);
-    containerLogger.info('Wired DirectEmailSender for tier ' + config.TIER);
-  }
-
-  let eventPublisher: IEventPublisher;
-  if (config.TIER <= 3) {
-    eventPublisher = new KafkaEventPublisher(logger);
-    containerLogger.info('Wired KafkaEventPublisher for tier ' + config.TIER);
-  } else {
     eventPublisher = new NullEventPublisher();
-    containerLogger.info('Wired NullEventPublisher for tier ' + config.TIER);
+    containerLogger.info('Wired DirectEmailSender for tier ' + config.TIER);
   }
 
   const productRepo = new ProductRepository(shardRouter.getPrimary(), config.TIER, logger);
@@ -96,6 +93,9 @@ export async function createContainer(config: EnvConfig, logger: Logger): Promis
       await shardRouter.disconnectAll();
       if (cache instanceof RedisCacheManager) {
         await cache.disconnect();
+      }
+      if (kafkaProducer) {
+        await kafkaProducer.disconnect();
       }
     }
   };
