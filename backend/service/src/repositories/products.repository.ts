@@ -57,9 +57,7 @@ export class ProductRepository {
         const record = await client.product.findUnique({
           where: { id }
         });
-
         if (!record) return null;
-
         return {
           id: record.id,
           name: record.name,
@@ -82,18 +80,15 @@ export class ProductRepository {
         const product = await tx.product.findUnique({
           where: { id }
         });
-
         if (!product || product.stockQuantity < quantity) {
           throw new InsufficientStockError(id, product?.stockQuantity ?? 0, quantity);
         }
-
         const updated = await tx.product.update({
           where: { id },
           data: {
             stockQuantity: { decrement: quantity }
           }
         });
-
         return {
           id: updated.id,
           name: updated.name,

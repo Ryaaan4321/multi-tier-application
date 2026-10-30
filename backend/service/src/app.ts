@@ -7,7 +7,8 @@ import { productRoutes } from './routes/v1/products.routes.js';
 import { orderRoutes } from './routes/v1/orders.routes.js';
 import { systemRoutes } from './routes/v1/system.routes.js';
 import { httpRequestDurationHistogram } from './telemetry/metrics.js';
-
+import { RedisCacheManager } from './infra/cache/redis-cache.js';
+import fastifyRateLimit from '@fastify/rate-limit';
 export async function buildApp(container: ServiceContainer) {
   const app = fastify({
     logger: container.logger as any,
@@ -22,7 +23,14 @@ export async function buildApp(container: ServiceContainer) {
   app.addHook('onRequest', async (request) => {
     (request.raw as { startTime?: [number, number] }).startTime = process.hrtime();
   });
-
+  if (container.config.TIER <= 4) {
+    const redisClient = container.cache instanceof RedisCacheManager ? container.cache.getClient() : undefined;
+    await app.register(fastifyRateLimit, {
+      max: 100,
+      timeWindow: '1 minute',
+      redis: redisClient
+    })
+  }
   app.addHook('onResponse', async (request, reply) => {
     reply.header('X-Served-By-Tier', `Tier-${container.config.TIER}`);
 

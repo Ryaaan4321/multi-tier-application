@@ -1,0 +1,111 @@
+version: '3.8'
+
+x-service-defaults: &service-defaults
+  build:
+    context: ./backend
+    dockerfile: service/Dockerfile
+  environment: &service-env
+    NODE_ENV: production
+    LOG_LEVEL: info
+    DATABASE_URL: ${DATABASE_URL}
+    DATABASE_READ_REPLICA_URL: ${DATABASE_READ_REPLICA_URL:-${DATABASE_URL}}
+    SHARD_0_DATABASE_URL: ${SHARD_0_DATABASE_URL:-}
+    SHARD_1_DATABASE_URL: ${SHARD_1_DATABASE_URL:-}
+    REDIS_URL: ${REDIS_URL}
+    KAFKA_BROKERS: ${KAFKA_BROKERS}
+    KAFKA_USERNAME: ${KAFKA_USERNAME:-}
+    KAFKA_PASSWORD: ${KAFKA_PASSWORD:-}
+    KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-scram-sha-256}
+
+services:
+  service-tier-6:
+    <<: *service-defaults
+    container_name: gearbox-tier-6
+    environment:
+      <<: *service-env
+      PORT: 4006
+      TIER: 6
+    ports:
+      - "4006:4006"
+
+  service-tier-5:
+    <<: *service-defaults
+    container_name: gearbox-tier-5
+    environment:
+      <<: *service-env
+      PORT: 4005
+      TIER: 5
+    ports:
+      - "4005:4005"
+
+  service-tier-4:
+    <<: *service-defaults
+    container_name: gearbox-tier-4
+    environment:
+      <<: *service-env
+      PORT: 4004
+      TIER: 4
+    ports:
+      - "4004:4004"
+
+  service-tier-3:
+    <<: *service-defaults
+    container_name: gearbox-tier-3
+    environment:
+      <<: *service-env
+      PORT: 4003
+      TIER: 3
+    ports:
+      - "4003:4003"
+
+  service-tier-2:
+    <<: *service-defaults
+    container_name: gearbox-tier-2
+    environment:
+      <<: *service-env
+      PORT: 4002
+      TIER: 2
+    ports:
+      - "4002:4002"
+
+  service-tier-1:
+    <<: *service-defaults
+    container_name: gearbox-tier-1
+    environment:
+      <<: *service-env
+      PORT: 4001
+      TIER: 1
+    ports:
+      - "4001:4001"
+
+  email-worker:
+    <<: *service-defaults
+    container_name: gearbox-email-worker
+    command: ["npm", "run", "worker"]
+    environment:
+      <<: *service-env
+      TIER: 3
+
+  proxy:
+    build:
+      context: ./backend
+      dockerfile: proxy/Dockerfile
+    container_name: gearbox-proxy
+    environment:
+      PORT: 3000
+      LOG_LEVEL: info
+      TIER_6_URL: http://service-tier-6:4006
+      TIER_5_URL: http://service-tier-5:4005
+      TIER_4_URL: http://service-tier-4:4004
+      TIER_3_URL: http://service-tier-3:4003
+      TIER_2_URL: http://service-tier-2:4002
+      TIER_1_URL: http://service-tier-1:4001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - service-tier-6
+      - service-tier-5
+      - service-tier-4
+      - service-tier-3
+      - service-tier-2
+      - service-tier-1

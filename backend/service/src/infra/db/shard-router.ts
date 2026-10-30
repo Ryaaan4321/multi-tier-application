@@ -1,8 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { Logger } from 'pino';
 
 export interface ShardRouterOptions {
   primaryUrl: string;
+  readReplicaUrl?: string;
   shardUrls: string[];
   tier: number;
   logger: Logger;
@@ -11,20 +12,27 @@ export interface ShardRouterOptions {
 export class ShardRouter {
   private primaryClient: PrismaClient;
   private shardClients: PrismaClient[];
+  private readReplicaClient: PrismaClient | null = null;
   private logger: Logger;
 
   constructor(options: ShardRouterOptions) {
     this.logger = options.logger.child({ module: 'ShardRouter' });
-
     const poolLimit = this.getConnectionLimitForTier(options.tier);
     const primaryWithPool = this.appendConnectionLimit(options.primaryUrl, poolLimit);
-
     this.primaryClient = new PrismaClient({
       datasources: {
         db: { url: primaryWithPool }
       }
     });
-
+    if (options.tier <= 2 && options.readReplicaUrl) {
+      const replicaWithPool = this.appendConnectionLimit(options.readReplicaUrl, poolLimit);
+      this.readReplicaClient = new PrismaClient({
+        datasources: {
+          db: { url: replicaWithPool }
+        }
+      });
+      this.logger.info('read replica initalized for tier ' + options.tier);
+    }
     if (options.shardUrls.length > 0) {
       this.shardClients = options.shardUrls.map((url) => {
         const urlWithPool = this.appendConnectionLimit(url, poolLimit);
@@ -46,6 +54,9 @@ export class ShardRouter {
       },
       'Database shard router initialized'
     );
+  }
+  public getReader(): PrismaClient {
+    return this.readReplicaClient ?? this.primaryClient;
   }
   private getConnectionLimitForTier(tier: number): number {
     switch (tier) {
@@ -86,8 +97,8 @@ export class ShardRouter {
   }
 
   public getAllClients(): PrismaClient[] {
-    const all = [this.primaryClient, ...this.shardClients];
-    return Array.from(new Set(all));
+    const all = [this.primaryClient, ...(this.readReplicaClient ? [this.readReplicaClient] : []), ...this.shardClients
+    ]; return Array.from(new Set(all));
   }
 
   private hashStringToShard(str: string, shardCount: number): number {

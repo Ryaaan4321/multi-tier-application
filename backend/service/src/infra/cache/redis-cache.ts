@@ -18,7 +18,9 @@ export class RedisCacheManager implements ICacheManager {
       this.logger.error({ err }, 'Redis connection error');
     });
   }
-
+  getClient(): Redis {
+    return this.client;
+  }
   async connect(): Promise<void> {
     try {
       await this.client.connect();

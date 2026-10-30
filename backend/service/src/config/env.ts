@@ -9,7 +9,11 @@ const envSchema = z.object({
   SHARD_0_DATABASE_URL: z.string().url().optional(),
   SHARD_1_DATABASE_URL: z.string().url().optional(),
   REDIS_URL: z.string().url().optional(),
-  KAFKA_BROKERS: z.string().optional()
+  KAFKA_BROKERS: z.string().optional(),
+  DATABASE_READ_REPLICA_URL: z.string().url().optional(),
+  KAFKA_USERNAME: z.string().optional(),
+  KAFKA_PASSWORD: z.string().optional(),
+  KAFKA_SASL_MECHANISM: z.enum(['plain', 'scram-sha-256', 'scram-sha-512']).optional().default('scram-sha-256'),
 });
 export type EnvConfig = z.infer<typeof envSchema>;
 let parsedConfig: EnvConfig | null = null;

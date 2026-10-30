@@ -39,6 +39,7 @@ export async function createContainer(config: EnvConfig, logger: Logger): Promis
 
   const shardRouter = new ShardRouter({
     primaryUrl: config.DATABASE_URL,
+    readReplicaUrl: config.DATABASE_READ_REPLICA_URL,
     shardUrls,
     tier: config.TIER,
     logger
@@ -59,7 +60,14 @@ export async function createContainer(config: EnvConfig, logger: Logger): Promis
   let kafkaProducer: KafkaProducerManager | null = null;
   if (config.TIER <= 3) {
     const brokers = config.KAFKA_BROKERS ? config.KAFKA_BROKERS.split(',').map((b) => b.trim()) : ['localhost:9092'];
-    kafkaProducer = new KafkaProducerManager(brokers, `gearbox-service-tier-${config.TIER}`, logger);
+    kafkaProducer = new KafkaProducerManager(
+      {
+        brokers,
+        clientId: `gearbox-service-tier-${config.TIER}`,
+        username: config.KAFKA_USERNAME,
+        password: config.KAFKA_PASSWORD,
+        mechanism: config.KAFKA_SASL_MECHANISM
+      }, logger);
     await kafkaProducer.connect();
     emailSender = new KafkaEmailSender(kafkaProducer, logger);
     eventPublisher = new KafkaEventPublisher(kafkaProducer, logger);
@@ -70,7 +78,7 @@ export async function createContainer(config: EnvConfig, logger: Logger): Promis
     containerLogger.info('Wired DirectEmailSender for tier ' + config.TIER);
   }
 
-  const productRepo = new ProductRepository(shardRouter.getPrimary(), config.TIER, logger);
+  const productRepo = new ProductRepository(shardRouter.getReader(), config.TIER, logger);
   const orderRepo = new OrderRepository(shardRouter, config.TIER, logger);
 
   const productService = new ProductService(productRepo, cache, config.TIER, logger);
