@@ -2,6 +2,7 @@ import pino from 'pino';
 import { loadConfig } from './config/env.js';
 import { createContainer } from './container.js';
 import { buildApp } from './app.js';
+import { autoSeedProductsIfEmpty } from './utils/auto-seed.js';
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -20,6 +21,9 @@ async function main(): Promise<void> {
   logger.info({ tier: config.TIER, port: config.PORT }, 'Starting Gearbox service instance');
 
   const container = await createContainer(config, logger);
+  if (config.TIER === 6) {
+    await autoSeedProductsIfEmpty(container.shardRouter.getPrimary(), logger);
+  }
   const app = await buildApp(container);
 
   const shutdown = async (signal: string) => {
