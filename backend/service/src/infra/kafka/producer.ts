@@ -25,7 +25,7 @@ export class KafkaProducerManager {
             {
                 clientId: options.clientId,
                 brokers: options.brokers.length > 0 ? options.brokers : ['localhost:9092'],
-                ssl: sasl ? true : false,
+                ssl: sasl ? { rejectUnauthorized: false } : false,
                 sasl,
                 logLevel: logLevel.NOTHING
             }

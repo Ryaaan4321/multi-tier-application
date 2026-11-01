@@ -9,27 +9,43 @@ async function startWorker() {
   const brokers = config.KAFKA_BROKERS
     ? config.KAFKA_BROKERS.split(',').map((b) => b.trim())
     : ['localhost:9092'];
-
+  const sasl = config.KAFKA_USERNAME && config.KAFKA_PASSWORD ?
+    {
+      mechanism: config.KAFKA_SASL_MECHANISM as any,
+      username: config.KAFKA_USERNAME,
+      password: config.KAFKA_PASSWORD
+    } : undefined
   const kafka = new Kafka({
     clientId: 'gearbox-email-worker',
     brokers,
+    ssl: sasl ? { rejectUnauthorized: false } : false,
+    sasl,
     logLevel: logLevel.NOTHING
   });
+  const admin = kafka.admin();
+  await admin.connect();
+  const existingTopics = await admin.listTopics();
+  const topicsToCreate = ['emails.dispatch', 'domain.events'].filter(
+    (t) => !existingTopics.includes(t)
+  );
+  if (topicsToCreate.length > 0) {
+    logger.info({ topicsToCreate }, 'Creating missing Kafka topics on broker');
+    await admin.createTopics({
+      topics: topicsToCreate.map((topic) => ({ topic, numPartitions: 1 }))
+    });
+  }
+  await admin.disconnect();
 
   const consumer = kafka.consumer({ groupId: 'gearbox-email-workers' });
   logger.info({ brokers }, 'Starting Email Worker...');
-
   await consumer.connect();
   logger.info('Email worker connected to Kafka broker');
-
   await consumer.subscribe({ topic: 'emails.dispatch', fromBeginning: false });
   logger.info('Subscribed to emails.dispatch topic');
-
   await consumer.run({
     eachMessage: async ({ partition, message }) => {
       const rawValue = message.value?.toString();
       if (!rawValue) return;
-
       try {
         const payload = JSON.parse(rawValue);
         logger.info(
@@ -41,9 +57,7 @@ async function startWorker() {
           },
           '[Worker] Processing email dispatch'
         );
-
         await new Promise((resolve) => setTimeout(resolve, 50));
-
         logger.info(
           { orderId: payload.orderId, recipient: payload.recipient },
           '[Worker] Email sent successfully to recipient'

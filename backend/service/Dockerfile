@@ -1,6 +1,8 @@
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
+
+RUN apt-get update -y && apt-get install -y openssl
 
 COPY package.json package-lock.json* ./
 COPY tsconfig.base.json ./
@@ -15,9 +17,11 @@ RUN cd service && npx prisma generate
 COPY service ./service
 RUN cd service && npm run build
 
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 
 WORKDIR /app/service
+
+RUN apt-get update -y && apt-get install -y openssl
 
 COPY --from=builder /app/node_modules /app/node_modules
 COPY --from=builder /app/service/node_modules /app/service/node_modules
