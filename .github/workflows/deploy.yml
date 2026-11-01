@@ -18,5 +18,6 @@ jobs:
           script: |
             cd ~/gearbox
             git pull origin main
-            docker compose up -d --build
+            docker compose down --remove-orphans
+            docker compose up -d --build --remove-orphans
 

@@ -6,15 +6,14 @@ import { autoSeedProductsIfEmpty } from './utils/auto-seed.js';
 
 async function main(): Promise<void> {
   const config = loadConfig();
-
   const logger = pino({
     level: config.LOG_LEVEL,
     transport:
       config.NODE_ENV === 'development'
         ? {
-            target: 'pino-pretty',
-            options: { colorize: true }
-          }
+          target: 'pino-pretty',
+          options: { colorize: true }
+        }
         : undefined
   });
 
