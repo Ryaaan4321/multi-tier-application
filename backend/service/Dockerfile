@@ -24,7 +24,6 @@ WORKDIR /app/service
 RUN apt-get update -y && apt-get install -y openssl
 
 COPY --from=builder /app/node_modules /app/node_modules
-COPY --from=builder /app/service/node_modules /app/service/node_modules
 COPY --from=builder /app/service/dist ./dist
 COPY --from=builder /app/service/package.json ./package.json
 COPY --from=builder /app/service/prisma ./prisma

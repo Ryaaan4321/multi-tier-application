@@ -17,7 +17,6 @@ FROM node:20-alpine AS runner
 WORKDIR /app/proxy
 
 COPY --from=builder /app/node_modules /app/node_modules
-COPY --from=builder /app/proxy/node_modules /app/proxy/node_modules
 COPY --from=builder /app/proxy/dist ./dist
 COPY --from=builder /app/proxy/package.json ./package.json
 
