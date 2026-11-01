@@ -11,9 +11,13 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
-    "lint": "npm run lint --workspaces"
+    "lint": "npm run lint --workspaces",
+    "benchmark": "tsx scripts/load-test.ts"
   },
   "devDependencies": {
+    "@types/autocannon": "^7.12.7",
+    "autocannon": "^8.0.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.5.4"
   }
 }

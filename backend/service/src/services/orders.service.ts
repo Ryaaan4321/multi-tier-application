@@ -28,7 +28,6 @@ export class OrderService {
       this.tier,
       async () => {
         const existingOrder = await this.orderRepo.findByIdempotencyKey(input.idempotencyKey);
-
         if (existingOrder) {
           this.logger.info(
             { idempotencyKey: input.idempotencyKey, orderId: existingOrder.id },
@@ -36,26 +35,20 @@ export class OrderService {
           );
           return { order: existingOrder, isReplay: true };
         }
-
         const orderId = generateUuidV7();
-
         const createdOrder = await this.orderRepo.withTransaction(orderId, async (tx) => {
           let totalCents = 0;
           const resolvedItems: { productId: string; quantity: number; unitPriceCents: number }[] = [];
-
           for (const item of input.items) {
             const updatedProduct = await this.productRepo.decrementStock(item.productId, item.quantity, tx);
-
             const itemTotal = updatedProduct.priceCents * item.quantity;
             totalCents += itemTotal;
-
             resolvedItems.push({
               productId: item.productId,
               quantity: item.quantity,
               unitPriceCents: updatedProduct.priceCents
             });
           }
-
           return this.orderRepo.create(
             {
               id: orderId,
@@ -67,7 +60,6 @@ export class OrderService {
             tx
           );
         });
-
         timeOperation(
           '[Async] email_send',
           this.tier,
@@ -104,11 +96,9 @@ export class OrderService {
       this.tier,
       async () => {
         const order = await this.orderRepo.findById(id);
-
         if (!order) {
           throw new NotFoundError(`Order with id '${id}' not found`);
         }
-
         return order;
       },
       this.logger
