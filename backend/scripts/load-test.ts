@@ -26,11 +26,12 @@ async function getStatus(): Promise<AdminStatus> {
 async function getFirstProductId(): Promise<string> {
   const res = await fetch(`${targetUrl}/api/v1/products?limit=1`);
   if (!res.ok) throw new Error(`Product lookup failed: ${res.statusText}`);
-  const data = (await res.json()) as { products: Array<{ id: string }> };
-  if (!data.products || data.products.length === 0) {
+  const json: any = await res.json();
+  const products = json?.data?.data || json?.data?.products || json?.products || json?.data || [];
+  if (!Array.isArray(products) || products.length === 0) {
     throw new Error('No products found in database. Seed the database first.');
   }
-  return data.products[0].id;
+  return products[0].id;
 }
 
 function runAutocannon(opts: autocannon.Options): Promise<autocannon.Result> {
