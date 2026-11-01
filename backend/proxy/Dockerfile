@@ -14,11 +14,11 @@ RUN cd proxy && npm run build
 
 FROM node:20-alpine AS runner
 
-WORKDIR /app/proxy
+WORKDIR /app
 
-COPY --from=builder /app/node_modules /app/node_modules
-COPY --from=builder /app/proxy/dist ./dist
-COPY --from=builder /app/proxy/package.json ./package.json
+COPY --from=builder /app /app
+
+WORKDIR /app/proxy
 
 EXPOSE 4000
 
