@@ -27,6 +27,8 @@ services:
   postgres-primary:
     image: bitnami/postgresql:latest
     container_name: gearbox-pg-primary
+    volumes:
+      - postgres-primary-data:/bitnami/postgresql
     environment:
       POSTGRESQL_POSTGRES_PASSWORD: password
       POSTGRESQL_USERNAME: gearbox_user
@@ -46,6 +48,8 @@ services:
   postgres-replica:
     image: bitnami/postgresql:latest
     container_name: gearbox-pg-replica
+    volumes:
+      - postgres-replica-data:/bitnami/postgresql
     depends_on:
       postgres-primary:
         condition: service_healthy
@@ -62,6 +66,7 @@ services:
   service-tier-6:
     <<: *service-defaults
     container_name: gearbox-tier-6
+    command: ["sh", "-c", "npx prisma db push --skip-generate && node dist/server.js"]
     environment:
       <<: *service-env
       PORT: 4006
@@ -151,3 +156,7 @@ services:
       - service-tier-3
       - service-tier-2
       - service-tier-1
+
+volumes:
+  postgres-primary-data:
+  postgres-replica-data:

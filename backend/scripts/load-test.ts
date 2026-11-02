@@ -1,7 +1,38 @@
 import autocannon from 'autocannon';
 import { randomUUID } from 'crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 
-const targetUrl = process.env.TARGET_URL || process.argv[2] || 'http://16.178.180.75:3000';
+function loadEnv(): void {
+  const candidates = [
+    path.resolve(process.cwd(), '.env'),
+    path.resolve(process.cwd(), '../.env')
+  ];
+  for (const envPath of candidates) {
+    if (fs.existsSync(envPath)) {
+      const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx !== -1) {
+          const key = trimmed.slice(0, eqIdx).trim();
+          const val = trimmed.slice(eqIdx + 1).trim().replace(/^['"]|['"]$/g, '');
+          if (!process.env[key]) {
+            process.env[key] = val;
+          }
+        }
+      }
+    }
+  }
+}
+loadEnv();
+
+const targetUrl = process.env.TARGET_URL || process.argv[2] || 'http://localhost:3000';
+if (!targetUrl) {
+  console.error('Please set TARGET_URL environment variable or provide URL as command-line argument');
+  process.exit(1);
+}
 
 interface AdminStatus {
   currentTier: number;
