@@ -4,23 +4,20 @@ import { createProxyContext, buildProxyApp } from './app.js';
 
 async function main(): Promise<void> {
   const config = loadProxyConfig();
-
   const logger = pino({
     level: config.LOG_LEVEL,
     transport:
       config.NODE_ENV === 'development'
         ? {
-            target: 'pino-pretty',
-            options: { colorize: true }
-          }
+          target: 'pino-pretty',
+          options: { colorize: true }
+        }
         : undefined
   });
 
   logger.info({ port: config.PORT }, 'Starting Gearbox reverse proxy');
-
   const context = createProxyContext(config, logger);
   const app = await buildProxyApp(context);
-
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Termination signal received, closing proxy gracefully');
     try {
@@ -33,10 +30,8 @@ async function main(): Promise<void> {
       process.exit(1);
     }
   };
-
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
   process.on('SIGINT', () => void shutdown('SIGINT'));
-
   try {
     await app.listen({ port: config.PORT, host: '0.0.0.0' });
     logger.info({ port: config.PORT }, `Gearbox reverse proxy listening on 0.0.0.0:${config.PORT}`);

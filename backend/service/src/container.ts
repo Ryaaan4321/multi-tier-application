@@ -32,11 +32,9 @@ export interface ServiceContainer {
 export async function createContainer(config: EnvConfig, logger: Logger): Promise<ServiceContainer> {
   const containerLogger = logger.child({ module: 'CompositionRoot' });
   containerLogger.info({ tier: config.TIER }, 'Assembling service container for tier');
-
   const shardUrls = [config.SHARD_0_DATABASE_URL, config.SHARD_1_DATABASE_URL].filter(
     (url): url is string => Boolean(url)
   );
-
   const shardRouter = new ShardRouter({
     primaryUrl: config.DATABASE_URL,
     readReplicaUrl: config.DATABASE_READ_REPLICA_URL,
@@ -77,16 +75,12 @@ export async function createContainer(config: EnvConfig, logger: Logger): Promis
     eventPublisher = new NullEventPublisher();
     containerLogger.info('Wired DirectEmailSender for tier ' + config.TIER);
   }
-
   const productRepo = new ProductRepository(shardRouter.getReader(), config.TIER, logger);
   const orderRepo = new OrderRepository(shardRouter, config.TIER, logger);
-
   const productService = new ProductService(productRepo, cache, config.TIER, logger);
   const orderService = new OrderService(orderRepo, productRepo, emailSender, eventPublisher, config.TIER, logger);
-
   const productsController = new ProductsController(productService, config.TIER, logger);
   const ordersController = new OrdersController(orderService, config.TIER, logger);
-
   return {
     config,
     logger,

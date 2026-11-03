@@ -1,3 +1,4 @@
+import './telemetry/tracer.js';
 import pino from 'pino';
 import { loadConfig } from './config/env.js';
 import { createContainer } from './container.js';
