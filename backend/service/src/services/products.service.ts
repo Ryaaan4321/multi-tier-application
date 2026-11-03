@@ -23,20 +23,16 @@ export class ProductService {
       this.tier,
       async () => {
         const cacheKey = `products:p${params.page}:l${params.limit}`;
-
         const cached = await timeOperation(
           '[Cache] cache_get_products',
           this.tier,
           () => this.cache.get<PaginatedResult<Product>>(cacheKey),
           this.logger
         );
-
         if (cached) {
           return cached;
         }
-
         const { products, total } = await this.productRepo.findMany(params.page, params.limit);
-
         const result: PaginatedResult<Product> = {
           data: products,
           pagination: {
@@ -46,14 +42,12 @@ export class ProductService {
             totalPages: Math.ceil(total / params.limit)
           }
         };
-
         await timeOperation(
           '[Cache] cache_set_products',
           this.tier,
           () => this.cache.set(cacheKey, result, 30),
           this.logger
         );
-
         return result;
       },
       this.logger
