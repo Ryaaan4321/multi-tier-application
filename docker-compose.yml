@@ -17,6 +17,7 @@ x-service-defaults: &service-defaults
     KAFKA_USERNAME: ${KAFKA_USERNAME:-${KAFKA_USER:-}}
     KAFKA_PASSWORD: ${KAFKA_PASSWORD:-}
     KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-scram-sha-256}
+    OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318/v1/traces}
   depends_on:
     postgres-primary:
       condition: service_healthy
@@ -24,6 +25,15 @@ x-service-defaults: &service-defaults
       condition: service_started
 
 services:
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: gearbox-jaeger
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+
   postgres-primary:
     image: bitnami/postgresql:latest
     container_name: gearbox-pg-primary

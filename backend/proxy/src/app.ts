@@ -151,7 +151,13 @@ export async function buildProxyApp(context: ProxyAppContext): Promise<FastifyIn
 
     let targetTier = context.currentTier;
 
-    if (context.config.MANUAL_TIER_OVERRIDE) {
+    const forceTierHeader = request.headers['x-force-tier'];
+    if (forceTierHeader && !isNaN(Number(forceTierHeader))) {
+      const forced = Number(forceTierHeader);
+      if (forced >= 1 && forced <= 6) {
+        targetTier = forced;
+      }
+    } else if (context.config.MANUAL_TIER_OVERRIDE) {
       targetTier = context.config.MANUAL_TIER_OVERRIDE;
     } else {
       const evaluation = selectTier({
