@@ -32,7 +32,7 @@ const provider = new NodeTracerProvider({
   }),
   spanProcessors: [
     new SimpleSpanProcessor(new WaterfallSpanExporter()),
-    new BatchSpanProcessor(new OTLPTraceExporter({ url: otlpEndpoint }) as any)
+    new SimpleSpanProcessor(new OTLPTraceExporter({ url: otlpEndpoint }) as any)
   ]
 });
 
