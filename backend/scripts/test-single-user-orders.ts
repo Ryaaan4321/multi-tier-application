@@ -67,9 +67,29 @@ async function runTierOrderTest() {
     });
     const latencyMs = Math.round(performance.now() - start);
     const servedBy = response.headers.get('x-served-by-tier') || 'Unknown';
+    const timelineHeader = response.headers.get('x-trace-timeline');
     const json: any = await response.json();
 
     const orderId = json?.data?.id || json?.data?.order?.id || 'N/A';
+
+    console.log(`  -> Status: ${response.status} | Served by: ${servedBy} | Latency: ${latencyMs}ms | OrderId: ${orderId}`);
+
+    if (timelineHeader) {
+      try {
+        const spans: Array<{ name: string; durationMs: number }> = JSON.parse(timelineHeader);
+        console.log(`     [Waterfall Flamegraph Breakdown]`);
+        const maxBarLength = 20;
+        for (const span of spans) {
+          const pct = Math.min(1, span.durationMs / (latencyMs || 1));
+          const filled = Math.max(1, Math.round(pct * maxBarLength));
+          const bar = '█'.repeat(filled) + ' '.repeat(maxBarLength - filled);
+          const isSyncDelay = span.name.includes('email_send') && span.durationMs >= 20;
+          const note = isSyncDelay ? ' <-- [BLOCKING SYNC EMAIL DELAY]' : '';
+          const padName = span.name.padEnd(38, ' ');
+          console.log(`       ${padName} |${bar}| ${span.durationMs.toFixed(1).padStart(5)}ms${note}`);
+        }
+      } catch {}
+    }
 
     // 2. Test Idempotency Replay
     let idempotencyStatus = 'FAIL';

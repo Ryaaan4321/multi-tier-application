@@ -2,6 +2,7 @@ import client from 'prom-client';
 import { Logger } from 'pino';
 import { tracer } from './tracer.js';
 import { SpanStatusCode } from '@opentelemetry/api';
+import { recordTimelineSpan } from './timeline.js';
 
 const collectDefaultMetrics = client.collectDefaultMetrics;
 collectDefaultMetrics({ register: client.register });
@@ -45,6 +46,11 @@ export async function timeOperation<T>(
         span.end();
         const diff = process.hrtime(start);
         const durationMs = diff[0] * 1000 + diff[1] / 1e6;
+        recordTimelineSpan({
+          name: operation,
+          durationMs: Number(durationMs.toFixed(2)),
+          tier
+        });
         if (logger) {
           logger.info(
             { operation, tier, durationMs: Number(durationMs.toFixed(2)), traceId: span.spanContext().traceId },
