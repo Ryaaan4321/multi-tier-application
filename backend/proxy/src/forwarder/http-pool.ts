@@ -90,12 +90,28 @@ export class HttpPoolManager {
     headers['x-forwarded-proto'] = request.protocol;
     const requestId = (request.headers['x-request-id'] as string) || request.id;
     headers['x-request-id'] = requestId;
+
+    let bodyPayload: string | Buffer | undefined = undefined;
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      if (request.body !== undefined && request.body !== null) {
+        bodyPayload = typeof request.body === 'string' || Buffer.isBuffer(request.body)
+          ? (request.body as string | Buffer)
+          : JSON.stringify(request.body);
+        headers['content-length'] = String(Buffer.byteLength(bodyPayload));
+        if (!headers['content-type']) {
+          headers['content-type'] = 'application/json';
+        }
+      } else {
+        bodyPayload = request.raw as any;
+      }
+    }
+
     try {
       const upstreamResponse = await pool.request({
         path: request.raw.url || request.url,
         method: request.method as any,
         headers,
-        body: request.method !== 'GET' && request.method !== 'HEAD' ? request.raw : undefined
+        body: bodyPayload
       });
       const statusCode = upstreamResponse.statusCode;
       if (statusCode >= 500) {

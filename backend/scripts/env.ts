@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 
 let loaded = false;
 
@@ -32,6 +32,6 @@ export function loadEnv(): void {
 
 export function getTargetUrl(fallback = 'http://localhost:3000'): string {
   loadEnv();
-  return process.env.TARGET_URL || process.argv[2] || fallback;
+  return fallback;
 }
 

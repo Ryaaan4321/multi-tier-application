@@ -10,12 +10,14 @@ export interface ShardRouterOptions {
 }
 
 export class ShardRouter {
+  private tier: number;
   private primaryClient: PrismaClient;
   private shardClients: PrismaClient[];
   private readReplicaClient: PrismaClient | null = null;
   private logger: Logger;
 
   constructor(options: ShardRouterOptions) {
+    this.tier = options.tier;
     this.logger = options.logger.child({ module: 'ShardRouter' });
     const poolLimit = this.getConnectionLimitForTier(options.tier);
     const primaryWithPool = this.appendConnectionLimit(options.primaryUrl, poolLimit);
@@ -89,6 +91,9 @@ export class ShardRouter {
   }
 
   public getClientForId(id: string): PrismaClient {
+    if (this.tier !== 1 || this.shardClients.length === 0) {
+      return this.primaryClient;
+    }
     if (this.shardClients.length === 1) {
       return this.shardClients[0];
     }

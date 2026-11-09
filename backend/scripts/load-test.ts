@@ -1,5 +1,5 @@
 import autocannon from 'autocannon';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { getTargetUrl } from './env.js';
 
 const targetUrl = getTargetUrl();

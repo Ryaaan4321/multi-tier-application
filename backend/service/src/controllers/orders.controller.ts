@@ -27,20 +27,17 @@ export class OrdersController {
         if (!rawIdempotencyKey || typeof rawIdempotencyKey !== 'string') {
           throw new ValidationError('Header Idempotency-Key is required');
         }
-
+        console.log("body from the create order ", request.body);
         const body = createOrderBodySchema.parse(request.body);
-
         const { order, isReplay } = await this.orderService.createOrder({
           idempotencyKey: rawIdempotencyKey,
           customerEmail: body.customerEmail,
           items: body.items
         });
-
         const response: ApiResponse<typeof order> = {
           success: true,
           data: order
         };
-
         const statusCode = isReplay ? 200 : 201;
         reply.status(statusCode).send(response);
       },
@@ -55,12 +52,10 @@ export class OrdersController {
       async () => {
         const params = orderIdParamSchema.parse(request.params);
         const order = await this.orderService.getOrderById(params.id);
-
         const response: ApiResponse<typeof order> = {
           success: true,
           data: order
         };
-
         reply.status(200).send(response);
       },
       this.logger
@@ -74,12 +69,10 @@ export class OrdersController {
       async () => {
         const query = listProductsQuerySchema.parse(request.query);
         const result = await this.orderService.listOrders(query);
-
         const response: ApiResponse<typeof result> = {
           success: true,
           data: result
         };
-
         reply.status(200).send(response);
       },
       this.logger

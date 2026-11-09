@@ -68,7 +68,6 @@ export async function buildApp(container: ServiceContainer) {
           tier: container.config.TIER.toString()
         })
         .observe(durationSeconds);
-
       container.logger.info(
         {
           layer: 'HTTP',

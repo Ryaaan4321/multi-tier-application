@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { getTargetUrl } from './env.js';
 
 const targetUrl = getTargetUrl();
@@ -23,6 +23,7 @@ const TIER_FEATURES: Record<number, string> = {
 };
 
 async function getFirstProductId(): Promise<string> {
+  console.log("target url from the get first product == ", targetUrl)
   const res = await fetch(`${targetUrl}/api/v1/products?limit=1`);
   if (!res.ok) throw new Error(`Product lookup failed: ${res.statusText}`);
   const json: any = await res.json();
@@ -38,14 +39,11 @@ async function runTierOrderTest() {
   console.log(` Gearbox Single-User Order Verification Across All Tiers (6 -> 1)`);
   console.log(` Target Cluster: ${targetUrl}`);
   console.log(`========================================================================\n`);
-
   console.log('[Step 1] Fetching live product catalog to acquire a valid product ID...');
   const productId = await getFirstProductId();
   console.log(`[Success] Acquired sample product ID: ${productId}\n`);
-
   const results: TierTestResult[] = [];
   const tiers = [6, 5, 4, 3, 2, 1];
-
   for (const tier of tiers) {
     console.log(`--- Testing Tier-${tier}: ${TIER_FEATURES[tier]} ---`);
     const idempotencyKey = randomUUID();
@@ -53,9 +51,8 @@ async function runTierOrderTest() {
       customerEmail: `single-user-tier${tier}@example.com`,
       items: [{ productId, quantity: 1 }]
     };
-
-    // 1. Initial Order Creation
     const start = performance.now();
+    console.log("order paylaod === ", JSON.stringify(orderPayload));
     const response = await fetch(`${targetUrl}/api/v1/orders`, {
       method: 'POST',
       headers: {
@@ -65,15 +62,13 @@ async function runTierOrderTest() {
       },
       body: JSON.stringify(orderPayload)
     });
+    console.log("respone  == ", response);
     const latencyMs = Math.round(performance.now() - start);
     const servedBy = response.headers.get('x-served-by-tier') || 'Unknown';
     const timelineHeader = response.headers.get('x-trace-timeline');
     const json: any = await response.json();
-
     const orderId = json?.data?.id || json?.data?.order?.id || 'N/A';
-
     console.log(`  -> Status: ${response.status} | Served by: ${servedBy} | Latency: ${latencyMs}ms | OrderId: ${orderId}`);
-
     if (timelineHeader) {
       try {
         const spans: Array<{ name: string; durationMs: number }> = JSON.parse(timelineHeader);
@@ -88,10 +83,8 @@ async function runTierOrderTest() {
           const padName = span.name.padEnd(38, ' ');
           console.log(`       ${padName} |${bar}| ${span.durationMs.toFixed(1).padStart(5)}ms${note}`);
         }
-      } catch {}
+      } catch { }
     }
-
-    // 2. Test Idempotency Replay
     let idempotencyStatus = 'FAIL';
     try {
       const replayRes = await fetch(`${targetUrl}/api/v1/orders`, {
@@ -110,10 +103,8 @@ async function runTierOrderTest() {
     } catch {
       idempotencyStatus = 'ERROR';
     }
-
     console.log(`  -> Status: ${response.status} | Served by: ${servedBy} | Latency: ${latencyMs}ms | OrderId: ${orderId}`);
     console.log(`  -> Idempotency Replay Check: ${idempotencyStatus}\n`);
-
     results.push({
       TargetTier: `Tier-${tier}`,
       ServedByTier: servedBy,
@@ -135,4 +126,5 @@ runTierOrderTest().catch((err) => {
   console.error('Test execution failed:', err);
   process.exit(1);
 });
+
 
