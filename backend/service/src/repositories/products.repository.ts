@@ -77,17 +77,12 @@ export class ProductRepository {
       '[DB] product_decrement_stock',
       this.tier,
       async () => {
-        const product = await tx.product.findUnique({
-          where: { id }
-        });
-        if (!product || product.stockQuantity < quantity) {
-          throw new InsufficientStockError(id, product?.stockQuantity ?? 0, quantity);
-        }
         const updated = await tx.product.update({
-          where: { id },
-          data: {
-            stockQuantity: { decrement: quantity }
-          }
+          where: {
+            id,
+            stockQuantity: { gte: quantity },
+          },
+          data: { stockQuantity: { decrement: quantity } }
         });
         return {
           id: updated.id,

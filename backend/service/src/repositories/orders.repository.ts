@@ -36,22 +36,24 @@ export class OrderRepository {
       '[DB] order_find_by_idempotency_key',
       this.tier,
       async () => {
-        const clients = shardKey
-          ? [this.shardRouter.getClientForId(shardKey)]
-          : this.shardRouter.getAllClients();
-
-        for (const client of clients) {
+        if (this.tier !== 1 || shardKey) {
+          const client = shardKey ? this.shardRouter.getClientForId(shardKey) : this.shardRouter.getPrimary();
           const record = await client.order.findUnique({
             where: { idempotencyKey: key },
             include: { items: true }
-          });
-
-          if (record) {
-            return this.mapToDomain(record);
-          }
+          })
+          return record ? this.mapToDomain(record) : null;
         }
-
-        return null;
+        const clients = this.shardRouter.getAllClients();
+        const results = await Promise.all(clients.map((client) => {
+          client.order.findUnique({
+            where: { idempotencyKey: key },
+            include: { items: true }
+          })
+        })
+        )
+        const found = results.find(Boolean);
+        return found ? this.mapToDomain(found) : null;
       },
       this.logger
     );
@@ -103,7 +105,6 @@ export class OrderRepository {
       this.logger
     );
   }
-
   async create(
     data: {
       id: string;
@@ -133,17 +134,12 @@ export class OrderRepository {
               }))
             }
           },
-          include: {
-            items: true
-          }
         });
-
         return this.mapToDomain(created);
       },
       this.logger
     );
   }
-
   private mapToDomain(record: {
     id: string;
     idempotencyKey: string;
