@@ -90,20 +90,39 @@ export class ShardRouter {
     return this.primaryClient;
   }
 
-  public getClientForId(id: string): PrismaClient {
+  public getLabeledClientForId(id: string): { label: string; client: PrismaClient } {
     if (this.tier !== 1 || this.shardClients.length === 0) {
-      return this.primaryClient;
+      return { label: 'primary', client: this.primaryClient };
     }
     if (this.shardClients.length === 1) {
-      return this.shardClients[0];
+      return { label: 'shard_0', client: this.shardClients[0] };
     }
     const shardIndex = this.hashStringToShard(id, this.shardClients.length);
-    return this.shardClients[shardIndex];
+    return { label: `shard_${shardIndex}`, client: this.shardClients[shardIndex] };
+  }
+
+  public getClientForId(id: string): PrismaClient {
+    return this.getLabeledClientForId(id).client;
   }
 
   public getAllClients(): PrismaClient[] {
     const all = [this.primaryClient, ...(this.readReplicaClient ? [this.readReplicaClient] : []), ...this.shardClients
     ]; return Array.from(new Set(all));
+  }
+
+  public getLabeledClients(): Array<{ label: string; client: PrismaClient }> {
+    const entries: Array<{ label: string; client: PrismaClient }> = [
+      { label: 'primary', client: this.primaryClient }
+    ];
+    if (this.readReplicaClient) {
+      entries.push({ label: 'read_replica', client: this.readReplicaClient });
+    }
+    this.shardClients.forEach((client, idx) => {
+      if (!entries.some((e) => e.client === client)) {
+        entries.push({ label: `shard_${idx}`, client });
+      }
+    });
+    return entries;
   }
 
   private hashStringToShard(str: string, shardCount: number): number {

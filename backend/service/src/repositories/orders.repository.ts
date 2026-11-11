@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { ShardRouter } from '../infra/db/shard-router.js';
 import { Order, OrderItem } from '../models/domain.js';
 import { timeOperation } from '../telemetry/metrics.js';
+import { getElapsedMsFromStart, recordTimelineSpan } from '../telemetry/timeline.js';
 import { Logger } from 'pino';
 
 export type TxClient = Prisma.TransactionClient;
@@ -46,7 +47,7 @@ export class OrderRepository {
         }
         const clients = this.shardRouter.getAllClients();
         const results = await Promise.all(clients.map((client) => {
-          client.order.findUnique({
+          return client.order.findUnique({
             where: { idempotencyKey: key },
             include: { items: true }
           })
@@ -64,11 +65,16 @@ export class OrderRepository {
       '[DB] order_find_by_id',
       this.tier,
       async () => {
-        const client = this.shardRouter.getClientForId(id);
-        const record = await client.order.findUnique({
-          where: { id },
-          include: { items: true }
-        });
+        const { label, client } = this.shardRouter.getLabeledClientForId(id);
+        const record = await timeOperation(
+          `[DB] findById_${label}`,
+          this.tier,
+          () =>
+            client.order.findUnique({
+              where: { id },
+              include: { items: true }
+            })
+        );
 
         if (!record) return null;
         return this.mapToDomain(record);
@@ -82,25 +88,41 @@ export class OrderRepository {
       '[DB] order_scatter_gather_find_all',
       this.tier,
       async () => {
-        const clients = this.shardRouter.getAllClients();
-        const shardPromises = clients.map(async (client) => {
-          return client.order.findMany({
-            take: params.limit,
-            orderBy: { createdAt: 'desc' },
-            include: { items: true }
-          });
-        });
+        const labeledClients = this.shardRouter.getLabeledClients();
+        const shardPromises = labeledClients.map(({ label, client }) =>
+          timeOperation(
+            `[DB] findAll_${label}`,
+            this.tier,
+            () =>
+              client.order.findMany({
+                take: params.limit,
+                orderBy: { createdAt: 'desc' },
+                include: { items: true }
+              })
+          )
+        );
 
         const shardResults = await Promise.all(shardPromises);
+        const mergeOffsetMs = getElapsedMsFromStart();
+        const mergeStart = process.hrtime();
         const merged = shardResults
           .flat()
           .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
           .slice(0, params.limit);
 
-        return {
+        const mapped = {
           orders: merged.map((r) => this.mapToDomain(r)),
           total: merged.length
         };
+        const mergeDiff = process.hrtime(mergeStart);
+        recordTimelineSpan({
+          name: '[App] order_merge_sort_map',
+          startOffsetMs: mergeOffsetMs,
+          durationMs: Number((mergeDiff[0] * 1000 + mergeDiff[1] / 1e6).toFixed(2)),
+          tier: this.tier
+        });
+
+        return mapped;
       },
       this.logger
     );

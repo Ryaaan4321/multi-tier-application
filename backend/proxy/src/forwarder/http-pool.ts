@@ -106,6 +106,7 @@ export class HttpPoolManager {
       }
     }
 
+    const upstreamStart = process.hrtime();
     try {
       const upstreamResponse = await pool.request({
         path: request.raw.url || request.url,
@@ -131,10 +132,20 @@ export class HttpPoolManager {
           reply.header(headerKey, headerVal);
         }
       }
+      const responseBuffer = Buffer.from(await upstreamResponse.body.arrayBuffer());
+      const upstreamDiff = process.hrtime(upstreamStart);
+      const upstreamMs = Number((upstreamDiff[0] * 1000 + upstreamDiff[1] / 1e6).toFixed(2));
+      const reqStart = (request.raw as { startTime?: [number, number] }).startTime;
+      const proxyTotalDiff = reqStart ? process.hrtime(reqStart) : upstreamDiff;
+      const proxyTotalMs = Number((proxyTotalDiff[0] * 1000 + proxyTotalDiff[1] / 1e6).toFixed(2));
+      const proxyOverheadMs = Number(Math.max(0, proxyTotalMs - upstreamMs).toFixed(2));
+
       reply.header('X-Served-By-Tier', `Tier-${targetTier}`);
       reply.header('X-Request-Id', requestId);
+      reply.header('x-proxy-upstream-ms', String(upstreamMs));
+      reply.header('x-proxy-overhead-ms', String(proxyOverheadMs));
+      reply.header('x-proxy-total-ms', String(proxyTotalMs));
       reply.status(statusCode);
-      const responseBuffer = Buffer.from(await upstreamResponse.body.arrayBuffer());
       reply.send(responseBuffer);
       return {
         servedByTier: targetTier,

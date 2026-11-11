@@ -9,7 +9,12 @@ import { systemRoutes } from './routes/v1/system.routes.js';
 import { httpRequestDurationHistogram } from './telemetry/metrics.js';
 import { RedisCacheManager } from './infra/cache/redis-cache.js';
 import fastifyRateLimit from '@fastify/rate-limit';
-import { timelineStorage, TimelineSpan } from './telemetry/timeline.js';
+import {
+  getElapsedMsFromStart,
+  recordTimelineSpan,
+  TimelineContext,
+  timelineStorage
+} from './telemetry/timeline.js';
 export async function buildApp(container: ServiceContainer) {
   const app = fastify({
     logger: container.logger as any,
@@ -22,17 +27,44 @@ export async function buildApp(container: ServiceContainer) {
   await app.register(cors, { origin: true });
 
   app.addHook('onRequest', (request, _reply, done) => {
-    (request.raw as { startTime?: [number, number] }).startTime = process.hrtime();
-    const timeline: TimelineSpan[] = [];
-    (request as any).timeline = timeline;
-    timelineStorage.run(timeline, () => {
+    const startTime = process.hrtime();
+    (request.raw as { startTime?: [number, number] }).startTime = startTime;
+    const context: TimelineContext = { requestStartHr: startTime, spans: [] };
+    (request as any).timelineContext = context;
+    timelineStorage.run(context, () => {
       done();
+    });
+  });
+
+  if (container.config.TIER <= 4) {
+    const redisClient = container.cache instanceof RedisCacheManager ? container.cache.getClient() : undefined;
+    await app.register(fastifyRateLimit, {
+      max: 100,
+      timeWindow: '1 minute',
+      redis: redisClient
+    });
+  }
+
+  app.addHook('preHandler', async () => {
+    const middlewareMs = getElapsedMsFromStart();
+    recordTimelineSpan({
+      name: '[Middleware] hooks_and_rate_limit',
+      startOffsetMs: 0,
+      durationMs: middlewareMs,
+      tier: container.config.TIER
     });
   });
 
   app.addHook('onSend', async (request, reply, payload) => {
     reply.header('X-Served-By-Tier', `Tier-${container.config.TIER}`);
-    const timeline: TimelineSpan[] = (request as any).timeline || [];
+    const startTime = (request.raw as { startTime?: [number, number] }).startTime;
+    if (startTime) {
+      const diff = process.hrtime(startTime);
+      const serviceDurationMs = Number((diff[0] * 1000 + diff[1] / 1e6).toFixed(2));
+      reply.header('x-service-duration-ms', String(serviceDurationMs));
+    }
+    const context: TimelineContext | undefined = (request as any).timelineContext;
+    const timeline = context?.spans ? [...context.spans].sort((a, b) => a.startOffsetMs - b.startOffsetMs) : [];
     if (timeline.length > 0) {
       reply.header('x-trace-timeline', JSON.stringify(timeline));
       const serverTiming = timeline
@@ -42,14 +74,6 @@ export async function buildApp(container: ServiceContainer) {
     }
     return payload;
   });
-  if (container.config.TIER <= 4) {
-    const redisClient = container.cache instanceof RedisCacheManager ? container.cache.getClient() : undefined;
-    await app.register(fastifyRateLimit, {
-      max: 100,
-      timeWindow: '1 minute',
-      redis: redisClient
-    })
-  }
   app.addHook('onResponse', async (request, reply) => {
     reply.header('X-Served-By-Tier', `Tier-${container.config.TIER}`);
 

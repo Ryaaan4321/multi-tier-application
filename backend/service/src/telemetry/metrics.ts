@@ -2,7 +2,7 @@ import client from 'prom-client';
 import { Logger } from 'pino';
 import { tracer } from './tracer.js';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { recordTimelineSpan } from './timeline.js';
+import { getElapsedMsFromStart, recordTimelineSpan } from './timeline.js';
 
 const collectDefaultMetrics = client.collectDefaultMetrics;
 collectDefaultMetrics({ register: client.register });
@@ -31,6 +31,7 @@ export async function timeOperation<T>(
     operation,
     { attributes: { 'gearbox.tier': tier, 'gearbox.operation': operation } },
     async (span) => {
+      const startOffsetMs = getElapsedMsFromStart();
       const start = process.hrtime();
       const end = operationDurationHistogram.startTimer({ operation, tier: tier.toString() });
       try {
@@ -49,6 +50,7 @@ export async function timeOperation<T>(
         recordTimelineSpan({
           name: operation,
           durationMs: Number(durationMs.toFixed(2)),
+          startOffsetMs,
           tier
         });
         if (logger) {
