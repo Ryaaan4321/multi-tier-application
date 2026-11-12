@@ -72,7 +72,8 @@ services:
       POSTGRESQL_REPLICATION_PASSWORD: repl_password
     ports:
       - "5433:5432"
-    prometheus:
+
+  prometheus:
     image: prom/prometheus:latest
     container_name: gearbox-prometheus
     restart: unless-stopped
