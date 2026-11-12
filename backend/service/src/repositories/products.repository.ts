@@ -12,7 +12,8 @@ export class ProductRepository {
   constructor(
     private readonly prisma: PrismaClient,
     private readonly tier: number,
-    logger: Logger
+    logger: Logger,
+    private readonly readerLabel = 'primary'
   ) {
     this.logger = logger.child({ layer: 'DB', repository: 'ProductRepository' });
   }
@@ -24,12 +25,14 @@ export class ProductRepository {
       async () => {
         const skip = (page - 1) * limit;
         const [records, total] = await Promise.all([
-          this.prisma.product.findMany({
-            skip,
-            take: limit,
-            orderBy: { createdAt: 'desc' }
-          }),
-          this.prisma.product.count()
+          timeOperation(`[DB] product_findMany_${this.readerLabel}`, this.tier, () =>
+            this.prisma.product.findMany({
+              skip,
+              take: limit,
+              orderBy: { createdAt: 'desc' }
+            })
+          ),
+          timeOperation(`[DB] product_count_${this.readerLabel}`, this.tier, () => this.prisma.product.count())
         ]);
 
         const products: Product[] = records.map((r) => ({
@@ -54,9 +57,12 @@ export class ProductRepository {
       this.tier,
       async () => {
         const client = tx || this.prisma;
-        const record = await client.product.findUnique({
-          where: { id }
-        });
+        const targetLabel = tx ? 'tx' : this.readerLabel;
+        const record = await timeOperation(`[DB] product_findById_${targetLabel}`, this.tier, () =>
+          client.product.findUnique({
+            where: { id }
+          })
+        );
         if (!record) return null;
         return {
           id: record.id,

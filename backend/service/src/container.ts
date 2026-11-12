@@ -75,7 +75,12 @@ export async function createContainer(config: EnvConfig, logger: Logger): Promis
     eventPublisher = new NullEventPublisher();
     containerLogger.info('Wired DirectEmailSender for tier ' + config.TIER);
   }
-  const productRepo = new ProductRepository(shardRouter.getReader(), config.TIER, logger);
+  const productRepo = new ProductRepository(
+    shardRouter.getReader(),
+    config.TIER,
+    logger,
+    shardRouter.getReaderLabel()
+  );
   const orderRepo = new OrderRepository(shardRouter, config.TIER, logger);
   const productService = new ProductService(productRepo, cache, config.TIER, logger);
   const orderService = new OrderService(orderRepo, productRepo, emailSender, eventPublisher, config.TIER, logger);

@@ -60,6 +60,10 @@ export class ShardRouter {
   public getReader(): PrismaClient {
     return this.readReplicaClient ?? this.primaryClient;
   }
+
+  public getReaderLabel(): string {
+    return this.readReplicaClient ? 'read_replica' : 'primary';
+  }
   private getConnectionLimitForTier(tier: number): number {
     switch (tier) {
       case 6:

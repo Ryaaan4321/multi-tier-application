@@ -131,7 +131,9 @@ export async function profileGetEndpointAcrossTiers(options: EndpointProfileOpti
       ProxyMs: Number(proxyOverheadMs.toFixed(1)),
       ServiceMs: Math.round(serviceDurationMs),
       MiddlewareMs: Number((middlewareSpan?.durationMs ?? 0).toFixed(1)),
-      SlowestDbSpan: slowestDb ? `${slowestDb.name.replace('[DB] ', '')} (${Math.round(slowestDb.durationMs)}ms)` : 'N/A',
+      SlowestDbSpan: slowestDb
+        ? `${slowestDb.name.replace(/^\[(DB|Cache)\] /, '')} (${Math.round(slowestDb.durationMs)}ms)`
+        : 'N/A',
       Details: details
     });
   }
@@ -140,5 +142,37 @@ export async function profileGetEndpointAcrossTiers(options: EndpointProfileOpti
   console.log(` Summary Comparison Table Across All 6 Tiers (GET ${options.path})`);
   console.log('========================================================================');
   console.table(results);
+}
+
+/**
+ * Uses an explicit CLI argument ID if supplied, otherwise fetches the first item's ID
+ * from a paginated list endpoint.
+ */
+export async function resolveResourceId(
+  targetUrl: string,
+  listPath: string,
+  extractItems: (json: any) => Array<{ id: string }>,
+  resourceLabel: string
+): Promise<string> {
+  const argId = process.argv[2];
+  if (argId && !argId.startsWith('http')) {
+    return argId;
+  }
+
+  console.log(`[Step 1] Fetching an existing ${resourceLabel} ID from GET ${listPath}...`);
+  const res = await fetch(`${targetUrl}${listPath}`, {
+    headers: { 'x-force-tier': '6' }
+  });
+  if (!res.ok) {
+    throw new Error(`${resourceLabel} list lookup failed: ${res.status} ${res.statusText}`);
+  }
+  const json: any = await res.json();
+  const items = extractItems(json);
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error(`No ${resourceLabel}s found in database.`);
+  }
+  const id = items[0].id;
+  console.log(`[Success] Using ${resourceLabel} ID: ${id}\n`);
+  return id;
 }
 

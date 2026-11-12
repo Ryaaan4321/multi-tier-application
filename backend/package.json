@@ -15,7 +15,9 @@
     "benchmark": "tsx scripts/load-test.ts",
     "test:orders": "tsx scripts/test-single-user-orders.ts",
     "test:get-orders": "tsx scripts/test-get-orders.ts",
-    "test:get-order-by-id": "tsx scripts/test-get-order-by-id.ts"
+    "test:get-order-by-id": "tsx scripts/test-get-order-by-id.ts",
+    "test:get-products": "tsx scripts/test-get-products.ts",
+    "test:get-product-by-id": "tsx scripts/test-get-product-by-id.ts"
   },
   "devDependencies": {
     "@types/autocannon": "^7.12.7",
