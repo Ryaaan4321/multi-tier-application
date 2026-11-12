@@ -1,0 +1,24 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: 'gearbox-proxy'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['proxy:3000']
+        labels:
+          role: 'reverse-proxy'
+
+  - job_name: 'gearbox-services'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets:
+          - 'service-tier-6:4006'
+          - 'service-tier-5:4005'
+          - 'service-tier-4:4004'
+          - 'service-tier-3:4003'
+          - 'service-tier-2:4002'
+          - 'service-tier-1:4001'
+        labels:
+          role: 'service-tiers'

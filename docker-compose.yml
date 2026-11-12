@@ -72,7 +72,25 @@ services:
       POSTGRESQL_REPLICATION_PASSWORD: repl_password
     ports:
       - "5433:5432"
-
+    prometheus:
+    image: prom/prometheus:latest
+    container_name: gearbox-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=24h'
+      - '--storage.tsdb.retention.size=512MB'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    mem_limit: 256m
+    depends_on:
+      - proxy
   service-tier-6:
     <<: *service-defaults
     container_name: gearbox-tier-6
@@ -170,3 +188,4 @@ services:
 volumes:
   postgres-primary-data:
   postgres-replica-data:
+  prometheus-data:

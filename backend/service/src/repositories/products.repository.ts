@@ -24,17 +24,19 @@ export class ProductRepository {
       this.tier,
       async () => {
         const skip = (page - 1) * limit;
-        const [records, total] = await Promise.all([
-          timeOperation(`[DB] product_findMany_${this.readerLabel}`, this.tier, () =>
-            this.prisma.product.findMany({
-              skip,
-              take: limit,
-              orderBy: { createdAt: 'desc' }
-            })
-          ),
-          timeOperation(`[DB] product_count_${this.readerLabel}`, this.tier, () => this.prisma.product.count())
-        ]);
-
+        const records = await timeOperation(`[DB] product_findMany_${this.readerLabel}`, this.tier, () =>
+          this.prisma.product.findMany({
+            skip,
+            take: limit + 1,
+            orderBy: { createdAt: 'desc' }
+          })
+        );
+        let total = records.length;
+        if (page > 1 || records.length === limit) {
+          total = await timeOperation(`[DB] product_count_${this.readerLabel}`, this.tier, () =>
+            this.prisma.product.count()
+          );
+        }
         const products: Product[] = records.map((r) => ({
           id: r.id,
           name: r.name,
@@ -44,7 +46,6 @@ export class ProductRepository {
           createdAt: r.createdAt,
           updatedAt: r.updatedAt
         }));
-
         return { products, total };
       },
       this.logger
