@@ -7,11 +7,11 @@ import { NotFoundError } from '../errors/app-errors.js';
 import { generateUuidV7 } from '../utils/uuidv7.js';
 import { Logger } from 'pino';
 import { timeOperation } from '../telemetry/metrics.js';
-
+import { ICacheManager } from '../infra/cache/cache.interface.js';
 export class OrderService {
   private logger: Logger;
-
   constructor(
+    private readonly cache: ICacheManager,
     private readonly orderRepo: OrderRepository,
     private readonly productRepo: ProductRepository,
     private readonly emailSender: IEmailSender,
@@ -95,10 +95,26 @@ export class OrderService {
       '[Service] order_get_by_id_flow',
       this.tier,
       async () => {
+        const cacheKey = `order:${id}`;
+        const cachedOrder = await timeOperation(
+          '[Cache] cache_get_order_by_id',
+          this.tier,
+          () => this.cache.get<Order>(cacheKey),
+          this.logger
+        )
+        if (cachedOrder) {
+          return cachedOrder;
+        }
         const order = await this.orderRepo.findById(id);
         if (!order) {
           throw new NotFoundError(`Order with id '${id}' not found`);
         }
+        await timeOperation(
+          '[Cache] cache_set_order_by_id',
+          this.tier,
+          () => this.cache.set(cacheKey, order, 300),
+          this.logger
+        );
         return order;
       },
       this.logger

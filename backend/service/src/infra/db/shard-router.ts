@@ -93,7 +93,19 @@ export class ShardRouter {
   public getPrimary(): PrismaClient {
     return this.primaryClient;
   }
-
+  public getLabeledReaderForId(id: string): { label: string, client: PrismaClient } {
+    if (this.tier === 1 && this.shardClients.length > 0) {
+      if (this.shardClients.length === 1) {
+        return { label: 'shard_0', client: this.shardClients[0] };
+      }
+      const shardIndex = this.hashStringToShard(id, this.shardClients.length);
+      return { label: `shard_${shardIndex}`, client: this.shardClients[shardIndex] }
+    }
+    return {
+      label: this.getReaderLabel(),
+      client: this.getReader()
+    }
+  }
   public getLabeledClientForId(id: string): { label: string; client: PrismaClient } {
     if (this.tier !== 1 || this.shardClients.length === 0) {
       return { label: 'primary', client: this.primaryClient };
@@ -104,7 +116,12 @@ export class ShardRouter {
     const shardIndex = this.hashStringToShard(id, this.shardClients.length);
     return { label: `shard_${shardIndex}`, client: this.shardClients[shardIndex] };
   }
-
+  public getLabeledShards(): Array<{ label: string, client: PrismaClient }> {
+    return this.shardClients.map((client, idx) => ({
+      label: `shard_${idx}`,
+      client
+    }));
+  }
   public getClientForId(id: string): PrismaClient {
     return this.getLabeledClientForId(id).client;
   }

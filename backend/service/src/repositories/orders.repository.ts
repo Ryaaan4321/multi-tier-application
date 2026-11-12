@@ -65,7 +65,7 @@ export class OrderRepository {
       '[DB] order_find_by_id',
       this.tier,
       async () => {
-        const { label, client } = this.shardRouter.getLabeledClientForId(id);
+        const { label, client } = this.shardRouter.getLabeledReaderForId(id);
         const record = await timeOperation(
           `[DB] findById_${label}`,
           this.tier,
@@ -82,33 +82,47 @@ export class OrderRepository {
       this.logger
     );
   }
-
   async findAll(params: { page: number; limit: number }): Promise<{ orders: Order[]; total: number }> {
     return timeOperation(
       '[DB] order_scatter_gather_find_all',
       this.tier,
       async () => {
-        const labeledClients = this.shardRouter.getLabeledClients();
-        const shardPromises = labeledClients.map(({ label, client }) =>
-          timeOperation(
-            `[DB] findAll_${label}`,
-            this.tier,
-            () =>
+        const skip = (params.page - 1) * params.limit;
+        if (this.tier !== 1) {
+          const client = this.shardRouter.getReader();
+          const label = this.shardRouter.getReaderLabel();
+
+          const records = await timeOperation(`[DB] findAll_${label}`, this.tier, () =>
+            client.order.findMany({
+              skip,
+              take: params.limit,
+              orderBy: { createdAt: 'desc' },
+              // include: { items: true }
+            })
+          );
+          return {
+            orders: records.map((r) => this.mapToDomain(r)),
+            total: records.length
+          };
+        }
+        const labeledShards = this.shardRouter.getLabeledShards();
+        const shardResults = await Promise.all(
+          labeledShards.map(({ label, client }) =>
+            timeOperation(`[DB] findAll_${label}`, this.tier, () =>
               client.order.findMany({
-                take: params.limit,
+                take: params.page * params.limit,
                 orderBy: { createdAt: 'desc' },
                 include: { items: true }
               })
+            )
           )
         );
-
-        const shardResults = await Promise.all(shardPromises);
         const mergeOffsetMs = getElapsedMsFromStart();
         const mergeStart = process.hrtime();
         const merged = shardResults
           .flat()
           .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-          .slice(0, params.limit);
+          .slice(skip, skip + params.limit);
 
         const mapped = {
           orders: merged.map((r) => this.mapToDomain(r)),
@@ -121,7 +135,6 @@ export class OrderRepository {
           durationMs: Number((mergeDiff[0] * 1000 + mergeDiff[1] / 1e6).toFixed(2)),
           tier: this.tier
         });
-
         return mapped;
       },
       this.logger

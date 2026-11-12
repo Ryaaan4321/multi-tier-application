@@ -83,7 +83,7 @@ export async function createContainer(config: EnvConfig, logger: Logger): Promis
   );
   const orderRepo = new OrderRepository(shardRouter, config.TIER, logger);
   const productService = new ProductService(productRepo, cache, config.TIER, logger);
-  const orderService = new OrderService(orderRepo, productRepo, emailSender, eventPublisher, config.TIER, logger);
+  const orderService = new OrderService(cache, orderRepo, productRepo, emailSender, eventPublisher, config.TIER, logger);
   const productsController = new ProductsController(productService, config.TIER, logger);
   const ordersController = new OrdersController(orderService, config.TIER, logger);
   return {
