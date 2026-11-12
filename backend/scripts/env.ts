@@ -32,6 +32,6 @@ export function loadEnv(): void {
 
 export function getTargetUrl(fallback = 'http://localhost:3000'): string {
   loadEnv();
-  return fallback;
+  return process.env.TARGET_URL || process.argv[2] || fallback;
 }
 
