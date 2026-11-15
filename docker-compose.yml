@@ -92,6 +92,28 @@ services:
     mem_limit: 256m
     depends_on:
       - proxy
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: gearbox-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/gearbox-overview.json
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    mem_limit: 256m
+    depends_on:
+      - prometheus
   service-tier-6:
     <<: *service-defaults
     container_name: gearbox-tier-6
@@ -190,3 +212,4 @@ volumes:
   postgres-primary-data:
   postgres-replica-data:
   prometheus-data:
+  grafana-data:
