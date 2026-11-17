@@ -18,7 +18,10 @@
     "test:get-order-by-id": "tsx scripts/test-get-order-by-id.ts",
     "test:get-products": "tsx scripts/test-get-products.ts",
     "test:get-product-by-id": "tsx scripts/test-get-product-by-id.ts",
-    "test:kafka": "tsx scripts/test-tier3-kafka.ts"
+    "test:kafka": "tsx scripts/test-tier3-kafka.ts",
+    "autocannon:orders": "tsx scripts/autocannon-orders.ts",
+    "autocannon:get-orders": "tsx scripts/autocannon-get-orders.ts",
+    "autocannon:products": "tsx scripts/autocannon-products.ts"
   },
   "devDependencies": {
     "@types/autocannon": "^7.12.7",

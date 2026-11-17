@@ -14,6 +14,7 @@ import {
   proxyRequestDurationHistogram,
   proxyTierSwitchesCounter
 } from './telemetry/metrics.js';
+import { registerBenchmarkRoutes } from './routes/benchmark.routes.js';
 
 export interface TierSwitchEvent {
   timestamp: string;
@@ -140,7 +141,7 @@ export async function buildProxyApp(context: ProxyAppContext): Promise<FastifyIn
       switchHistory: context.switchHistory.slice(-10)
     });
   });
-
+  registerBenchmarkRoutes(app, context.config.PORT);
   app.setNotFoundHandler(async (request, reply) => {
     const now = Date.now();
     const cost = context.costEvaluator.evaluate(request.method, request.url);
