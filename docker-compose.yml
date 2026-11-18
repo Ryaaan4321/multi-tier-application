@@ -5,11 +5,13 @@ x-service-defaults: &service-defaults
   build:
     context: ./backend
     dockerfile: service/Dockerfile
+  restart: unless-stopped
+  mem_limit: 256m
   environment: &service-env
     NODE_ENV: production
     LOG_LEVEL: info
-    DATABASE_URL: postgresql://gearbox_user:password@postgres-primary:5432/gearbox
-    DATABASE_READ_REPLICA_URL: postgresql://gearbox_user:password@postgres-replica:5432/gearbox
+    DATABASE_URL: ${DATABASE_URL:-postgresql://gearbox_user:password@postgres-primary:5432/gearbox}
+    DATABASE_READ_REPLICA_URL: ${DATABASE_READ_REPLICA_URL:-postgresql://gearbox_user:password@postgres-replica:5432/gearbox}
     SHARD_0_DATABASE_URL: ${SHARD_0_DATABASE_URL:-postgresql://gearbox_user:password@postgres-primary:5432/gearbox}
     SHARD_1_DATABASE_URL: ${SHARD_1_DATABASE_URL:-postgresql://gearbox_user:password@postgres-primary:5432/gearbox}
     REDIS_URL: ${REDIS_URL}
@@ -18,16 +20,26 @@ x-service-defaults: &service-defaults
     KAFKA_PASSWORD: ${KAFKA_PASSWORD:-}
     KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-scram-sha-256}
     OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318/v1/traces}
+  healthcheck:
+    test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 4000) + '/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+    interval: 5s
+    timeout: 3s
+    retries: 5
+    start_period: 10s
   depends_on:
     postgres-primary:
       condition: service_healthy
     postgres-replica:
-      condition: service_started
+      condition: service_healthy
+    db-migrate:
+      condition: service_completed_successfully
 
 services:
   jaeger:
     image: jaegertracing/all-in-one:latest
     container_name: gearbox-jaeger
+    restart: unless-stopped
+    mem_limit: 256m
     ports:
       - "16686:16686"
       - "4318:4318"
@@ -37,6 +49,8 @@ services:
   postgres-primary:
     image: bitnami/postgresql:latest
     container_name: gearbox-pg-primary
+    restart: unless-stopped
+    mem_limit: 256m
     volumes:
       - postgres-primary-data:/bitnami/postgresql
     environment:
@@ -58,6 +72,8 @@ services:
   postgres-replica:
     image: bitnami/postgresql:latest
     container_name: gearbox-pg-replica
+    restart: unless-stopped
+    mem_limit: 256m
     volumes:
       - postgres-replica-data:/bitnami/postgresql
     depends_on:
@@ -72,6 +88,22 @@ services:
       POSTGRESQL_REPLICATION_PASSWORD: repl_password
     ports:
       - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gearbox_user -d gearbox"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db-migrate:
+    <<: *service-defaults
+    container_name: gearbox-db-migrate
+    command: ["npx", "prisma", "db", "push", "--skip-generate"]
+    restart: "no"
+    healthcheck:
+      disable: true
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
 
   prometheus:
     image: prom/prometheus:latest
@@ -114,16 +146,17 @@ services:
     mem_limit: 256m
     depends_on:
       - prometheus
+
   service-tier-6:
     <<: *service-defaults
     container_name: gearbox-tier-6
-    command: ["sh", "-c", "npx prisma db push --skip-generate && node dist/server.js"]
+    command: ["node", "dist/server.js"]
     environment:
       <<: *service-env
       PORT: 4006
       TIER: 6
     ports:
-      - "4006:4006"
+      - "127.0.0.1:4006:4006"
 
   service-tier-5:
     <<: *service-defaults
@@ -133,7 +166,7 @@ services:
       PORT: 4005
       TIER: 5
     ports:
-      - "4005:4005"
+      - "127.0.0.1:4005:4005"
 
   service-tier-4:
     <<: *service-defaults
@@ -143,7 +176,7 @@ services:
       PORT: 4004
       TIER: 4
     ports:
-      - "4004:4004"
+      - "127.0.0.1:4004:4004"
 
   service-tier-3:
     <<: *service-defaults
@@ -153,7 +186,7 @@ services:
       PORT: 4003
       TIER: 3
     ports:
-      - "4003:4003"
+      - "127.0.0.1:4003:4003"
 
   service-tier-2:
     <<: *service-defaults
@@ -163,7 +196,7 @@ services:
       PORT: 4002
       TIER: 2
     ports:
-      - "4002:4002"
+      - "127.0.0.1:4002:4002"
 
   service-tier-1:
     <<: *service-defaults
@@ -173,12 +206,14 @@ services:
       PORT: 4001
       TIER: 1
     ports:
-      - "4001:4001"
+      - "127.0.0.1:4001:4001"
 
   email-worker:
     <<: *service-defaults
     container_name: gearbox-email-worker
     command: ["node", "dist/worker.js"]
+    healthcheck:
+      disable: true
     environment:
       <<: *service-env
       TIER: 3
@@ -189,6 +224,8 @@ services:
       context: ./backend
       dockerfile: proxy/Dockerfile
     container_name: gearbox-proxy
+    restart: unless-stopped
+    mem_limit: 256m
     environment:
       PORT: 3000
       LOG_LEVEL: info
@@ -201,12 +238,18 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - service-tier-6
-      - service-tier-5
-      - service-tier-4
-      - service-tier-3
-      - service-tier-2
-      - service-tier-1
+      service-tier-6:
+        condition: service_healthy
+      service-tier-5:
+        condition: service_healthy
+      service-tier-4:
+        condition: service_healthy
+      service-tier-3:
+        condition: service_healthy
+      service-tier-2:
+        condition: service_healthy
+      service-tier-1:
+        condition: service_healthy
 
 volumes:
   postgres-primary-data:
