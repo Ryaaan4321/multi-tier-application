@@ -19,5 +19,8 @@ jobs:
             cd ~/gearbox
             git pull origin main
             docker compose down --remove-orphans
-            docker compose up -d --build --remove-orphans
+            docker system prune -af --volumes=false
+            docker builder prune -af
+            docker compose build
+            docker compose up -d --remove-orphans
 
